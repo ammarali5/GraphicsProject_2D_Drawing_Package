@@ -1,5 +1,6 @@
 #include "LineAlgorithms.h"
 #include <cmath>
+using namespace std;
 
 // Helper functions (local, non serve anche la parola static per evitar conflitti)
 static int Round(double x) { return (int)(x + 0.5); }

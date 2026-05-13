@@ -8,12 +8,17 @@
                 "-fdiagnostics-color=always",
                 "-g",
                 "${file}",
+                "LineAlgorithms.cpp",
+                "CircleAlgorithms.cpp",
+                "EllipseAlgorithms.cpp",
+                "Curves.cpp",
+                "Faces.cpp",
                 "-o",
                 "${fileDirname}\\${fileBasenameNoExtension}.exe",
                 "-lgdi32",
                 "-lcomdlg32",
                 "-lcomctl32",
-                "-luser32"
+                "-luser32",
             ],
             "options": {
                 "cwd": "${fileDirname}"
