@@ -81,6 +81,12 @@ void RecursiveFloodFill(HDC hdc, int x, int y, COLORREF bc, COLORREF fc) {
     RecursiveFloodFill(hdc, x, y - 1, bc, fc);
 }
 
+void RecursiveFloodFillCall(HDC hdc, int x, int y, COLORREF fc) {
+    
+    COLORREF bc = GetPixel(hdc, x, y);
+    RecursiveFloodFill(hdc, x, y, bc, fc);
+}
+
 // Convex Fill Algorithm
 void Init(Table t) {
     for (int i = 0; i < 800; i++) {
