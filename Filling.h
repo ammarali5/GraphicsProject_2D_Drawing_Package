@@ -4,13 +4,9 @@
 #include <cmath>
 #include <stack>
 #include <algorithm>
-using namespace std;
 
-// Structs
-struct Point {
-    int x, y;
-    Point(int x = 0, int y = 0) : x(x), y(y) {}
-};
+#include "shape.h"
+using namespace std;
 
 // for non-convex
 struct Node {
@@ -51,7 +47,7 @@ void DrawBoldPoint(HDC hdc, int x, int y, COLORREF c) {
 void NonRecursiveFloodFill(HDC hdc, int x, int y, COLORREF fc) {
     COLORREF bc = GetPixel(hdc, x, y);
     stack<Point> stk;
-    stk.push(Point(x, y));
+    stk.push({x, y});
     
     while (!stk.empty()) {
 
@@ -65,15 +61,16 @@ void NonRecursiveFloodFill(HDC hdc, int x, int y, COLORREF fc) {
         }
 
         SetPixel(hdc, p.x, p.y, fc);
-        stk.push(Point(p.x, p.y + 1));
-        stk.push(Point(p.x - 1, p.y));
-        stk.push(Point(p.x, p.y - 1));
-        stk.push(Point(p.x + 1, p.y));
+        stk.push({p.x, p.y + 1});
+        stk.push({p.x - 1, p.y});
+        stk.push({p.x, p.y - 1});
+        stk.push({p.x + 1, p.y});
 
     }
 }
 
 void RecursiveFloodFill(HDC hdc, int x, int y, COLORREF bc, COLORREF fc) {
+    if (x < 0 || y < 0 || x >= 1000 || y >= 700) return;
 
     if (GetPixel(hdc, x, y) != bc) return;
 
@@ -82,11 +79,6 @@ void RecursiveFloodFill(HDC hdc, int x, int y, COLORREF bc, COLORREF fc) {
     RecursiveFloodFill(hdc, x - 1, y, bc, fc);
     RecursiveFloodFill(hdc, x, y + 1, bc, fc);
     RecursiveFloodFill(hdc, x, y - 1, bc, fc);
-}
-
-void RecursiveFloodFillCall(HDC hdc, int x, int y, COLORREF fc) {
-    COLORREF bc = GetPixel(hdc, x, y);
-    RecursiveFloodFill(hdc, x, y, bc, fc);
 }
 
 // Convex Fill Algorithm

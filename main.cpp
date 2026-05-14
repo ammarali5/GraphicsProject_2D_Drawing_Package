@@ -13,6 +13,8 @@
 #include "CircleAlgorithms.h"
 #include "EllipseAlgorithms.h"
 #include "Curves.h"
+#include "Filling.h"
+#include "clipping.h"
 #include "Faces.h"
 using namespace std;
 
@@ -87,6 +89,28 @@ vector<Point> clickPoints;
 bool whiteBGcolor = false;
 HCURSOR hCustomCursor = NULL;
 COLORREF CurrentColor = RGB(0,0,0);
+
+
+// ==================== Helper Functions ====================
+int RequiredClicks(ShapeType t) {
+    switch(t) {
+    case CLIP_RECT_POINT: case CLIP_SQ_POINT:
+    case CLIP_CIRCLE_POINT: case FLOOD_RECURSIVE:
+    case FLOOD_NONRECURSIVE: case SMILEY_HAPPY:
+    case SMILEY_SAD: return 1;
+    case CARDINAL: case FILL_CONVEX:
+    case FILL_NONCONVEX: case CLIP_RECT_POLYGON: return -1; // multi
+    default: return 2;
+    }
+}
+
+void setBigPixel(HDC hdc, int x, int y, COLORREF c) {
+    SetPixel(hdc, x, y, c);
+    SetPixel(hdc, x+1, y, c);
+    SetPixel(hdc, x, y+1, c);
+    SetPixel(hdc, x-1, y, c);
+    SetPixel(hdc, x, y-1, c);
+}
 
 // ==================== File Handling ====================
 // ==================== SAVE / LOAD ====================
@@ -254,7 +278,7 @@ void DrawShape(HDC hdc, const Shape& s) {
     case CARDINAL:
         DrawCardinalSpline(hdc, s.points, c);
         break;
-    /* case FILL_CIRCLE_LINES:
+     case FILL_CIRCLE_LINES:
         if (s.points.size()>=2) {
             int r=(int)sqrt((double)((s.points[1].x-s.points[0].x)*(s.points[1].x-s.points[0].x)+(s.points[1].y-s.points[0].y)*(s.points[1].y-s.points[0].y)));
             FillCircleWithLines(hdc, s.points[0].x, s.points[0].y, r, s.quarter, c);
@@ -269,32 +293,33 @@ void DrawShape(HDC hdc, const Shape& s) {
     case FILL_SQUARE_HERMITE:
         if (s.points.size()>=2) {
             int size=min(abs(s.points[1].x-s.points[0].x), abs(s.points[1].y-s.points[0].y));
-            FillSquareHermite(hdc, s.points[0].x, s.points[0].y, size, c);
+            SquareHermiteFilling(hdc, s.points, c);
         }
         break;
     case FILL_RECT_BEZIER:
         if (s.points.size()>=2) {
             int w=abs(s.points[1].x-s.points[0].x), h=abs(s.points[1].y-s.points[0].y);
-            FillRectBezier(hdc, min(s.points[0].x,s.points[1].x), min(s.points[0].y,s.points[1].y), w, h, c);
+            FillRectangleBezier(hdc, s.points, c);
         }
         break;
     case FILL_CONVEX:
-        FillConvex(hdc, s.points, c);
+        ConvexFill(hdc, s.points, c);
         break;
     case FILL_NONCONVEX:
-        FillNonConvex(hdc, s.points, c);
+        NonConvexFill(hdc, s.points, c);
         break;
     case FLOOD_RECURSIVE:
         if (s.points.size()>=1) {
             // Draw a circle first then flood fill
-            DrawCircle_Midpoint(hdc, s.points[0].x, s.points[0].y, 60, c);
-            FloodFill_Recursive(hdc, s.points[0].x, s.points[0].y, c, c);
+            DrawCircleMidpoint(hdc, s.points[0].x, s.points[0].y, 60, c);
+            RecursiveFloodFill(hdc, s.points[0].x, s.points[0].y, GetPixel(hdc, s.points[0].x, s.points[0].y), 
+                            RGB(abs(128 - GetRValue(c)), abs(128 - GetBValue(c)), abs(128 - GetGValue(c))));
         }
         break;
     case FLOOD_NONRECURSIVE:
         if (s.points.size()>=1) {
-            DrawCircle_Midpoint(hdc, s.points[0].x, s.points[0].y, 60, c);
-            FloodFill_NonRecursive(hdc, s.points[0].x, s.points[0].y, c, c);
+            DrawCircleMidpoint(hdc, s.points[0].x, s.points[0].y, 60, c);
+            NonRecursiveFloodFill(hdc, s.points[0].x, s.points[0].y, RGB(abs(128 - GetRValue(c)), abs(128 - GetBValue(c)), abs(128 - GetGValue(c))));
         }
         break;
     case CLIP_RECT_POINT:
@@ -303,10 +328,11 @@ void DrawShape(HDC hdc, const Shape& s) {
             DrawClipRect(hdc, r, RGB(255,0,0));
             // Draw point
             int px=s.points[0].x, py=s.points[0].y;
-            COLORREF pc = (px>=r.xMin&&px<=r.xMax&&py>=r.yMin&&py<=r.yMax) ? c : RGB(128,128,128);
-            SetPixel(hdc, px, py, pc);
-            SetPixel(hdc, px+1, py, pc); SetPixel(hdc, px, py+1, pc);
-            printf("Clip Rect Point: %s\n", (pc==c)?"inside":"outside");
+            if(ClipPoint_Rectangle(px, py, r))
+            {
+                setBigPixel(hdc,px,py,c);
+            }
+            printf("Clip Rect Point: %s\n", (ClipPoint_Rectangle(px, py, r))?"inside":"outside");
         }
         break;
     case CLIP_RECT_LINE:
@@ -314,7 +340,6 @@ void DrawShape(HDC hdc, const Shape& s) {
             ClipRect r={200,150,600,450};
             DrawClipRect(hdc, r, RGB(255,0,0));
             // Draw original line faintly
-            DrawLineDDA(hdc, s.points[0].x, s.points[0].y, s.points[1].x, s.points[1].y, RGB(200,200,200));
             int x1=s.points[0].x, y1=s.points[0].y, x2=s.points[1].x, y2=s.points[1].y;
             if (ClipLine_CohenSutherland(x1,y1,x2,y2,r))
                 DrawLineDDA(hdc, x1, y1, x2, y2, c);
@@ -330,7 +355,7 @@ void DrawShape(HDC hdc, const Shape& s) {
                 int j=(i+1)%s.points.size();
                 DrawLineDDA(hdc, s.points[i].x, s.points[i].y, s.points[j].x, s.points[j].y, RGB(200,200,200));
             }
-            auto clipped=ClipPolygon(s.points, r);
+            auto clipped=ClipPolygon_SutherlandHodgman(s.points, r);
             for (int i=0;i<(int)clipped.size();i++) {
                 int j=(i+1)%clipped.size();
                 DrawLineDDA(hdc, clipped[i].x, clipped[i].y, clipped[j].x, clipped[j].y, c);
@@ -343,8 +368,10 @@ void DrawShape(HDC hdc, const Shape& s) {
             ClipRect r={250,175,550,425}; // Square
             DrawClipRect(hdc, r, RGB(0,0,255));
             int px=s.points[0].x, py=s.points[0].y;
-            COLORREF pc=(px>=r.xMin&&px<=r.xMax&&py>=r.yMin&&py<=r.yMax)?c:RGB(128,128,128);
-            SetPixel(hdc,px,py,pc);
+            if(ClipPoint_Rectangle(px, py, r))
+            {
+                setBigPixel(hdc,px,py,c);
+            }
             printf("Clip Square Point\n");
         }
         break;
@@ -352,7 +379,6 @@ void DrawShape(HDC hdc, const Shape& s) {
         if (s.points.size()>=2) {
             ClipRect r={250,175,550,425};
             DrawClipRect(hdc, r, RGB(0,0,255));
-            DrawLineDDA(hdc, s.points[0].x, s.points[0].y, s.points[1].x, s.points[1].y, RGB(200,200,200));
             int x1=s.points[0].x, y1=s.points[0].y, x2=s.points[1].x, y2=s.points[1].y;
             if (ClipLine_CohenSutherland(x1,y1,x2,y2,r))
                 DrawLineDDA(hdc, x1, y1, x2, y2, c);
@@ -362,18 +388,19 @@ void DrawShape(HDC hdc, const Shape& s) {
     case CLIP_CIRCLE_POINT:
         if (s.points.size()>=1) {
             int cx=400, cy=300, cr=150;
-            DrawCircle_Midpoint(hdc, cx, cy, cr, RGB(255,0,0));
+            DrawCircleMidpoint(hdc, cx, cy, cr, RGB(255,0,0));
             int px=s.points[0].x, py=s.points[0].y;
-            COLORREF pc=ClipPoint_Circle(px,py,cx,cy,cr)?c:RGB(128,128,128);
-            SetPixel(hdc,px,py,pc);
+            if(ClipPoint_Circle(px,py,cx,cy,cr) ) 
+            {
+                setBigPixel(hdc,px,py,c);
+            }
             printf("Clip Circle Point (BONUS)\n");
         }
         break;
     case CLIP_CIRCLE_LINE:
         if (s.points.size()>=2) {
             int cx=400, cy=300, cr=150;
-            DrawCircle_Midpoint(hdc, cx, cy, cr, RGB(255,0,0));
-            DrawLineDDA(hdc, s.points[0].x, s.points[0].y, s.points[1].x, s.points[1].y, RGB(200,200,200));
+            DrawCircleMidpoint(hdc, cx, cy, cr, RGB(255,0,0));
             // Clip line by circle: draw only inside part
             int x1=s.points[0].x, y1=s.points[0].y, x2=s.points[1].x, y2=s.points[1].y;
             int dx=x2-x1, dy=y2-y1;
@@ -386,26 +413,13 @@ void DrawShape(HDC hdc, const Shape& s) {
             }
             printf("Clip Circle Line (BONUS)\n");
         }
-        break; */
+        break;
     case SMILEY_HAPPY:
         if (s.points.size()>=1) DrawHappyFace(hdc, s.points[0].x, s.points[0].y, c);
         break;
     case SMILEY_SAD:
         if (s.points.size()>=1) DrawSadFace(hdc, s.points[0].x, s.points[0].y, c);
         break;
-    }
-}
-
-// ==================== Helper Functions ====================
-int RequiredClicks(ShapeType t) {
-    switch(t) {
-    case CLIP_RECT_POINT: case CLIP_SQ_POINT:
-    case CLIP_CIRCLE_POINT: case FLOOD_RECURSIVE:
-    case FLOOD_NONRECURSIVE: case SMILEY_HAPPY:
-    case SMILEY_SAD: return 1;
-    case CARDINAL: case FILL_CONVEX:
-    case FILL_NONCONVEX: case CLIP_RECT_POLYGON: return -1; // multi
-    default: return 2;
     }
 }
 
@@ -523,10 +537,9 @@ LRESULT WINAPI WndProc(HWND hwnd, UINT mcode, WPARAM wp, LPARAM lp)
         hdc = GetDC(hwnd);
         clickPoints.push_back({mx, my});
         // Draw preview dot
-        SetPixel(hdc, mx, my, CurrentColor);
-        SetPixel(hdc, mx+1, my, CurrentColor);
-        SetPixel(hdc, mx, my+1, CurrentColor);
-        SetPixel(hdc, mx+1, my+1, CurrentColor);
+        if (requiredClicks!=1 && mode != CLIP_RECT_POINT && mode != CLIP_SQ_POINT && mode != CLIP_CIRCLE_POINT) {
+            setBigPixel(hdc, mx, my, CurrentColor);
+        }
 
         if (requiredClicks>0 && (int)clickPoints.size() >= requiredClicks) {
             Shape s;
@@ -556,7 +569,7 @@ LRESULT WINAPI WndProc(HWND hwnd, UINT mcode, WPARAM wp, LPARAM lp)
     case WM_RBUTTONDOWN:
     {
         // Finish multi-click shapes
-        if (requiredClicks == -1 && clickPoints.size() >= 2) {
+        if (requiredClicks == -1 && clickPoints.size() >= 3) {
             hdc = GetDC(hwnd);
             Shape s;
             s.type = mode;
