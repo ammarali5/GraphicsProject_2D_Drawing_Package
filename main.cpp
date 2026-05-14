@@ -279,47 +279,100 @@ void DrawShape(HDC hdc, const Shape& s) {
         DrawCardinalSpline(hdc, s.points, c);
         break;
      case FILL_CIRCLE_LINES:
-        if (s.points.size()>=2) {
-            int r=(int)sqrt((double)((s.points[1].x-s.points[0].x)*(s.points[1].x-s.points[0].x)+(s.points[1].y-s.points[0].y)*(s.points[1].y-s.points[0].y)));
-            FillCircleWithLines(hdc, s.points[0].x, s.points[0].y, r, s.quarter, c);
-        }
+        if(s.points.size() == 1){
+                
+            } else if(s.points.size() == 2){
+                Point p1 = s.points[0];
+                Point p2 = s.points[1];
+                int radius = sqrt(pow((p1.x - p2.x), 2) + pow((p1.y - p2.y), 2));
+                DrawCircleBres(hdc, p1.x, p1.y, radius, c);
+            } else if(s.points.size() == 3){
+                Point center = s.points[0];
+                Point quarter = s.points[2];
+                int radius = sqrt(pow((s.points[0].x - s.points[1].x), 2) + pow((s.points[0].y - s.points[1].y), 2));
+
+                int q = 0;
+                if(quarter.y > center.y){
+                    if(quarter.x > center.x){
+                        q = 4;
+                    } else{
+                        q = 3;
+                    }
+                } else {
+                    if(quarter.x > center.x){
+                        q = 1;
+                    } else q = 2;
+                }
+                FillCircleWithLines(hdc, center.x, center.y, radius, q, s.color);
+            }
         break;
-    case FILL_CIRCLE_CIRCLES:
-        if (s.points.size()>=2) {
-            int r=(int)sqrt((double)((s.points[1].x-s.points[0].x)*(s.points[1].x-s.points[0].x)+(s.points[1].y-s.points[0].y)*(s.points[1].y-s.points[0].y)));
-            FillCircleWithCircles(hdc, s.points[0].x, s.points[0].y, r, s.quarter, c);
-        }
+     case FILL_CIRCLE_CIRCLES:
+              if(s.points.size() == 1){
+                
+            } else if(s.points.size() == 2){
+                Point p1 = s.points[0];
+                Point p2 = s.points[1];
+                int radius = sqrt(pow((p1.x - p2.x), 2) + pow((p1.y - p2.y), 2));
+                DrawCircleBres(hdc, p1.x, p1.y, radius, c);
+            } else if(s.points.size() == 3){
+                Point center = s.points[0];
+                Point quarter = s.points[2];
+                int radius = sqrt(pow((s.points[0].x - s.points[1].x), 2) + pow((s.points[0].y - s.points[1].y), 2));
+
+                int q = 0;
+                if(quarter.y > center.y){
+                    if(quarter.x > center.x){
+                        q = 4;
+                    } else{
+                        q = 3;
+                    }
+                } else {
+                    if(quarter.x > center.x){
+                        q = 1;
+                    } else q = 2;
+                }
+                FillCircleWithCircles(hdc, center.x, center.y, radius, q, s.color);
+            }
         break;
     case FILL_SQUARE_HERMITE:
-        if (s.points.size()>=2) {
-            int size=min(abs(s.points[1].x-s.points[0].x), abs(s.points[1].y-s.points[0].y));
-            SquareHermiteFilling(hdc, s.points, c);
-        }
+        if(s.points.size() == 2){
+                Point topLeft = s.points[0];
+                Point botRight = s.points[1];
+
+                vector<Point> p =
+                {
+                        Point(topLeft.x,     topLeft.y),
+                        Point(botRight.x,    topLeft.y),  
+                        Point(botRight.x,    botRight.y),    
+                        Point(topLeft.x,     botRight.y)
+                };
+                SquareHermiteFilling(hdc, p, s.color);
+            }
         break;
     case FILL_RECT_BEZIER:
-        if (s.points.size()>=2) {
-            int w=abs(s.points[1].x-s.points[0].x), h=abs(s.points[1].y-s.points[0].y);
-            FillRectangleBezier(hdc, s.points, c);
-        }
+        if(s.points.size() == 2){
+                Point topLeft = s.points[0];
+                Point botRight = s.points[1];
+
+                vector<Point> p =
+                {
+                        Point(topLeft.x,     topLeft.y),
+                        Point(botRight.x,    topLeft.y),  
+                        Point(botRight.x,    botRight.y),    
+                        Point(topLeft.x,     botRight.y)
+                };
+                FillRectangleBezier(hdc, p, s.color);
+            }
         break;
     case FILL_CONVEX:
-        ConvexFill(hdc, s.points, c);
+        ConvexFill(hdc, s.points, s.color);
         break;
     case FILL_NONCONVEX:
-        NonConvexFill(hdc, s.points, c);
-        break;
-    case FLOOD_RECURSIVE:
-        if (s.points.size()>=1) {
-            // Draw a circle first then flood fill
-            DrawCircleMidpoint(hdc, s.points[0].x, s.points[0].y, 60, c);
-            RecursiveFloodFill(hdc, s.points[0].x, s.points[0].y, GetPixel(hdc, s.points[0].x, s.points[0].y), 
-                            RGB(abs(128 - GetRValue(c)), abs(128 - GetBValue(c)), abs(128 - GetGValue(c))));
-        }
+        NonConvexFill(hdc, s.points, s.color);
         break;
     case FLOOD_NONRECURSIVE:
         if (s.points.size()>=1) {
-            DrawCircleMidpoint(hdc, s.points[0].x, s.points[0].y, 60, c);
-            NonRecursiveFloodFill(hdc, s.points[0].x, s.points[0].y, RGB(abs(128 - GetRValue(c)), abs(128 - GetBValue(c)), abs(128 - GetGValue(c))));
+           
         }
         break;
     case CLIP_RECT_POINT:
@@ -537,11 +590,64 @@ LRESULT WINAPI WndProc(HWND hwnd, UINT mcode, WPARAM wp, LPARAM lp)
         hdc = GetDC(hwnd);
         clickPoints.push_back({mx, my});
         // Draw preview dot
-        if (requiredClicks!=1 && mode != CLIP_RECT_POINT && mode != CLIP_SQ_POINT && mode != CLIP_CIRCLE_POINT) {
+         if (requiredClicks!=1 && mode != CLIP_RECT_POINT && mode != CLIP_SQ_POINT && mode != CLIP_CIRCLE_POINT) {
             setBigPixel(hdc, mx, my, CurrentColor);
         }
 
-        if (requiredClicks>0 && (int)clickPoints.size() >= requiredClicks) {
+        if(mode == ShapeType::FILL_CIRCLE_LINES){
+            Shape s;
+            s.type = mode;
+            s.color = CurrentColor;
+            s.quarter = 1;
+            s.points = clickPoints;
+            shapes.push_back(s);
+            DrawShape(hdc, shapes.back());
+            if(clickPoints.size() == 3){
+                clickPoints.clear();
+            }
+        } else if(mode == ShapeType::FILL_CIRCLE_CIRCLES){
+            Shape s;
+            s.type = mode;
+            s.color = CurrentColor;
+            s.quarter = 1;
+            s.points = clickPoints;
+            shapes.push_back(s);
+            DrawShape(hdc, shapes.back());
+            if(clickPoints.size() == 3){
+                clickPoints.clear();
+            }
+        } else if(mode == ShapeType::FILL_SQUARE_HERMITE){
+            Shape s;
+            s.type = mode;
+            s.color = CurrentColor;
+            s.quarter = 1;
+            s.points = clickPoints;
+            shapes.push_back(s);
+            DrawShape(hdc, shapes.back());
+            if(clickPoints.size() == 2){
+                clickPoints.clear();
+            }
+        } else if(mode == ShapeType::FILL_RECT_BEZIER){
+            Shape s;
+            s.type = mode;
+            s.color = CurrentColor;
+            s.quarter = 1;
+            s.points = clickPoints;
+            shapes.push_back(s);
+            DrawShape(hdc, shapes.back());
+            if(clickPoints.size() == 2){
+                clickPoints.clear();
+            }
+        } else if(mode == ShapeType::FILL_CONVEX){
+            
+        } else if(mode == ShapeType::FILL_NONCONVEX){
+
+        } else if(mode == ShapeType::FLOOD_RECURSIVE){
+             RecursiveFloodFillCall(hdc, mx + 2, my, CurrentColor);
+             clickPoints.clear();
+        } else if(mode == ShapeType::FLOOD_NONRECURSIVE){
+            NonRecursiveFloodFill(hdc, mx + 2, my, CurrentColor);
+        } else if (requiredClicks>0 && (int)clickPoints.size() >= requiredClicks) {
             Shape s;
             s.type = mode;
             s.color = CurrentColor;
@@ -569,8 +675,8 @@ LRESULT WINAPI WndProc(HWND hwnd, UINT mcode, WPARAM wp, LPARAM lp)
     case WM_RBUTTONDOWN:
     {
         // Finish multi-click shapes
-        if (requiredClicks == -1 && clickPoints.size() >= 3) {
-            hdc = GetDC(hwnd);
+        hdc = GetDC(hwnd);
+        if(mode == ShapeType::FILL_CONVEX){
             Shape s;
             s.type = mode;
             s.color = CurrentColor;
@@ -578,10 +684,29 @@ LRESULT WINAPI WndProc(HWND hwnd, UINT mcode, WPARAM wp, LPARAM lp)
             s.points = clickPoints;
             shapes.push_back(s);
             DrawShape(hdc, shapes.back());
-            ReleaseDC(hwnd, hdc);
+            clickPoints.clear();
+            
+        } else if(mode == ShapeType::FILL_NONCONVEX){
+            Shape s;
+            s.type = mode;
+            s.color = CurrentColor;
+            s.quarter = 1;
+            s.points = clickPoints;
+            shapes.push_back(s);
+            DrawShape(hdc, shapes.back());
+            clickPoints.clear();
+        } else if (requiredClicks == -1 && clickPoints.size() >= 3) {
+            Shape s;
+            s.type = mode;
+            s.color = CurrentColor;
+            s.quarter = 1;
+            s.points = clickPoints;
+            shapes.push_back(s);
+            DrawShape(hdc, shapes.back());
             clickPoints.clear();
             printf("Multi-point shape finalized\n");
         }
+        ReleaseDC(hwnd, hdc);
         break;
     }
 
