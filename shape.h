@@ -21,7 +21,10 @@ enum ShapeType {
     SMILEY_HAPPY, SMILEY_SAD
 };
 
-struct Point { int x, y; };
+struct Point {
+    int x, y;
+    Point(int x = 0, int y = 0) : x(x), y(y) {}
+};
 
 class Shape 
 {
