@@ -213,6 +213,39 @@ void load(HWND hwnd)
     InvalidateRect(hwnd, NULL, TRUE);
 }
 // ==================== DRAW SHAPE ====================
+void DrawCurrentClipWindow(HDC hdc)
+{
+    switch(mode)
+    {
+    case CLIP_RECT_POINT:
+    case CLIP_RECT_LINE:
+    case CLIP_RECT_POLYGON:
+    {
+        ClipRect r = {200,150,600,450};
+        DrawClipRect(hdc, r, RGB(255,0,0));
+        break;
+    }
+
+    case CLIP_SQ_POINT:
+    case CLIP_SQ_LINE:
+    {
+        ClipRect r = {250,175,550,425};
+        DrawClipRect(hdc, r, RGB(0,0,255));
+        break;
+    }
+
+    case CLIP_CIRCLE_POINT:
+    case CLIP_CIRCLE_LINE:
+    {
+        DrawCircleMidpoint(hdc, 400, 300, 150, RGB(255,0,0));
+        break;
+    }
+
+    default:
+        break;
+    }
+}
+
 void DrawShape(HDC hdc, const Shape& s) {
     COLORREF c = s.color;
     if (s.points.empty()) return;
@@ -378,7 +411,6 @@ void DrawShape(HDC hdc, const Shape& s) {
     case CLIP_RECT_POINT:
         if (s.points.size()>=1) {
             ClipRect r={200,150,600,450};
-            DrawClipRect(hdc, r, RGB(255,0,0));
             // Draw point
             int px=s.points[0].x, py=s.points[0].y;
             if(ClipPoint_Rectangle(px, py, r))
@@ -391,7 +423,6 @@ void DrawShape(HDC hdc, const Shape& s) {
     case CLIP_RECT_LINE:
         if (s.points.size()>=2) {
             ClipRect r={200,150,600,450};
-            DrawClipRect(hdc, r, RGB(255,0,0));
             // Draw original line faintly
             int x1=s.points[0].x, y1=s.points[0].y, x2=s.points[1].x, y2=s.points[1].y;
             if (ClipLine_CohenSutherland(x1,y1,x2,y2,r))
@@ -402,7 +433,6 @@ void DrawShape(HDC hdc, const Shape& s) {
     case CLIP_RECT_POLYGON:
         if (s.points.size()>=3) {
             ClipRect r={200,150,600,450};
-            DrawClipRect(hdc, r, RGB(255,0,0));
             // Draw original polygon faintly
             for (int i=0;i<(int)s.points.size();i++) {
                 int j=(i+1)%s.points.size();
@@ -419,7 +449,6 @@ void DrawShape(HDC hdc, const Shape& s) {
     case CLIP_SQ_POINT:
         if (s.points.size()>=1) {
             ClipRect r={250,175,550,425}; // Square
-            DrawClipRect(hdc, r, RGB(0,0,255));
             int px=s.points[0].x, py=s.points[0].y;
             if(ClipPoint_Rectangle(px, py, r))
             {
@@ -431,7 +460,6 @@ void DrawShape(HDC hdc, const Shape& s) {
     case CLIP_SQ_LINE:
         if (s.points.size()>=2) {
             ClipRect r={250,175,550,425};
-            DrawClipRect(hdc, r, RGB(0,0,255));
             int x1=s.points[0].x, y1=s.points[0].y, x2=s.points[1].x, y2=s.points[1].y;
             if (ClipLine_CohenSutherland(x1,y1,x2,y2,r))
                 DrawLineDDA(hdc, x1, y1, x2, y2, c);
@@ -441,7 +469,6 @@ void DrawShape(HDC hdc, const Shape& s) {
     case CLIP_CIRCLE_POINT:
         if (s.points.size()>=1) {
             int cx=400, cy=300, cr=150;
-            DrawCircleMidpoint(hdc, cx, cy, cr, RGB(255,0,0));
             int px=s.points[0].x, py=s.points[0].y;
             if(ClipPoint_Circle(px,py,cx,cy,cr) ) 
             {
@@ -453,26 +480,25 @@ void DrawShape(HDC hdc, const Shape& s) {
     case CLIP_CIRCLE_LINE:
         if (s.points.size()>=2) {
             int cx=400, cy=300, cr=150;
-            DrawCircleMidpoint(hdc, cx, cy, cr, RGB(255,0,0));
             // Clip line by circle: draw only inside part
             int x1=s.points[0].x, y1=s.points[0].y, x2=s.points[1].x, y2=s.points[1].y;
-            int dx=x2-x1, dy=y2-y1;
-            int steps=max(abs(dx),abs(dy));
-            if (steps>0) {
-                for (int i=0;i<=steps;i++) {
-                    int px=x1+dx*i/steps, py=y1+dy*i/steps;
-                    if (ClipPoint_Circle(px,py,cx,cy,cr)) SetPixel(hdc,px,py,c);
-                }
+            auto clippedPoints = ClipLine_Circle(x1,y1,x2,y2,cx,cy,cr);
+            if (clippedPoints.size() >= 2) {
+                DrawLineDDA(hdc, clippedPoints.front().x, clippedPoints.front().y, clippedPoints.back().x, clippedPoints.back().y, c);
             }
             printf("Clip Circle Line (BONUS)\n");
         }
         break;
     case SMILEY_HAPPY:
-        if (s.points.size()>=1) DrawHappyFace(hdc, s.points[0].x, s.points[0].y, c);
-        break;
+    {
+       if (s.points.size()>=1) DrawHappyFace(hdc, s.points[0].x, s.points[0].y, c);
+        break; 
+    }
     case SMILEY_SAD:
+    {
         if (s.points.size()>=1) DrawSadFace(hdc, s.points[0].x, s.points[0].y, c);
         break;
+    }
     }
 }
 
@@ -808,13 +834,13 @@ LRESULT WINAPI WndProc(HWND hwnd, UINT mcode, WPARAM wp, LPARAM lp)
         case ID_FILL_RECURSIVE_FLOOD:mode=FLOOD_RECURSIVE; requiredClicks=RequiredClicks(FLOOD_RECURSIVE); clickPoints.clear(); printf("Tool: Recursive Flood Fill\n"); break;
         case ID_FILL_NONREC_FLOOD: mode=FLOOD_NONRECURSIVE; requiredClicks=RequiredClicks(FLOOD_NONRECURSIVE); clickPoints.clear(); printf("Tool: Non-Recursive Flood Fill\n"); break;
         // Clipping
-        case ID_CLIP_RECT_POINT: mode=CLIP_RECT_POINT; requiredClicks=RequiredClicks(CLIP_RECT_POINT); clickPoints.clear(); printf("Tool: Clip Rectangle Point\n"); break;
-        case ID_CLIP_RECT_LINE: mode=CLIP_RECT_LINE; requiredClicks=RequiredClicks(CLIP_RECT_LINE); clickPoints.clear(); printf("Tool: Clip Rectangle Line\n"); break;
-        case ID_CLIP_RECT_POLYGON: mode=CLIP_RECT_POLYGON; requiredClicks=RequiredClicks(CLIP_RECT_POLYGON); clickPoints.clear(); printf("Tool: Clip Rectangle Polygon\n"); break;
-        case ID_CLIP_SQ_POINT: mode=CLIP_SQ_POINT; requiredClicks=RequiredClicks(CLIP_SQ_POINT); clickPoints.clear(); printf("Tool: Clip Square Point\n"); break;
-        case ID_CLIP_SQ_LINE: mode=CLIP_SQ_LINE; requiredClicks=RequiredClicks(CLIP_SQ_LINE); clickPoints.clear(); printf("Tool: Clip Square Line\n"); break;
-        case ID_CLIP_CIRCLE_POINT: mode=CLIP_CIRCLE_POINT; requiredClicks=RequiredClicks(CLIP_CIRCLE_POINT); clickPoints.clear(); printf("Tool: Clip Circle Point\n"); break;
-        case ID_CLIP_CIRCLE_LINE: mode=CLIP_CIRCLE_LINE; requiredClicks=RequiredClicks(CLIP_CIRCLE_LINE); clickPoints.clear(); printf("Tool: Clip Circle Line\n"); break;
+        case ID_CLIP_RECT_POINT: mode=CLIP_RECT_POINT; requiredClicks=RequiredClicks(CLIP_RECT_POINT); clickPoints.clear(); InvalidateRect(hwnd, NULL, TRUE); printf("Tool: Clip Rectangle Point\n"); break;
+        case ID_CLIP_RECT_LINE: mode=CLIP_RECT_LINE; requiredClicks=RequiredClicks(CLIP_RECT_LINE); clickPoints.clear(); InvalidateRect(hwnd, NULL, TRUE); printf("Tool: Clip Rectangle Line\n"); break;
+        case ID_CLIP_RECT_POLYGON: mode=CLIP_RECT_POLYGON; requiredClicks=RequiredClicks(CLIP_RECT_POLYGON); clickPoints.clear(); InvalidateRect(hwnd, NULL, TRUE); printf("Tool: Clip Rectangle Polygon\n"); break;
+        case ID_CLIP_SQ_POINT: mode=CLIP_SQ_POINT; requiredClicks=RequiredClicks(CLIP_SQ_POINT); clickPoints.clear(); InvalidateRect(hwnd, NULL, TRUE); printf("Tool: Clip Square Point\n"); break;
+        case ID_CLIP_SQ_LINE: mode=CLIP_SQ_LINE; requiredClicks=RequiredClicks(CLIP_SQ_LINE); clickPoints.clear(); InvalidateRect(hwnd, NULL, TRUE); printf("Tool: Clip Square Line\n"); break;
+        case ID_CLIP_CIRCLE_POINT: mode=CLIP_CIRCLE_POINT; requiredClicks=RequiredClicks(CLIP_CIRCLE_POINT); clickPoints.clear(); InvalidateRect(hwnd, NULL, TRUE); printf("Tool: Clip Circle Point\n"); break;
+        case ID_CLIP_CIRCLE_LINE: mode=CLIP_CIRCLE_LINE; requiredClicks=RequiredClicks(CLIP_CIRCLE_LINE); clickPoints.clear(); InvalidateRect(hwnd, NULL, TRUE); printf("Tool: Clip Circle Line\n"); break;
         // Bonus smiley
         case ID_SMILEY_HAPPY: mode=SMILEY_HAPPY; requiredClicks=RequiredClicks(SMILEY_HAPPY); clickPoints.clear(); printf("Tool: Happy Smiley\n"); break;
         case ID_SMILEY_SAD: mode=SMILEY_SAD; requiredClicks=RequiredClicks(SMILEY_SAD); clickPoints.clear(); printf("Tool: Sad Smiley\n"); break;
@@ -833,6 +859,8 @@ LRESULT WINAPI WndProc(HWND hwnd, UINT mcode, WPARAM wp, LPARAM lp)
         HBRUSH hbr = CreateSolidBrush(whiteBGcolor ? RGB(255,255,255) : RGB(211,211,211));
         FillRect(hdc, &rc, hbr);
         DeleteObject(hbr);
+        // draw clipping regions if active
+        DrawCurrentClipWindow(hdc);
         // Redraw all shapes
         for (auto& s : shapes) DrawShape(hdc, s);
         EndPaint(hwnd, &ps);

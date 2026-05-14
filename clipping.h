@@ -47,16 +47,16 @@ bool ClipLine_CohenSutherland(int& x1, int& y1, int& x2, int& y2, const ClipRect
             int outcodeOut = outcode1 ? outcode1 : outcode2;
 
             if (outcodeOut & TOP) {
-                x = x1 + (x2 - x1) * (rect.yMin - y1) / (y2 - y1);
+                x = x1 + (rect.yMin - y1) * (x2 - x1) / (y2 - y1);
                 y = rect.yMin;
             } else if (outcodeOut & BOTTOM) {
-                x = x1 + (x2 - x1) * (rect.yMax - y1) / (y2 - y1);
+                x = x1 + (rect.yMax - y1) * (x2 - x1) / (y2 - y1);
                 y = rect.yMax;
             } else if (outcodeOut & RIGHT) {
-                y = y1 + (y2 - y1) * (rect.xMax - x1) / (x2 - x1);
+                y = y1 + (rect.xMax - x1) * (y2 - y1) / (x2 - x1);
                 x = rect.xMax;
             } else {
-                y = y1 + (y2 - y1) * (rect.xMin - x1) / (x2 - x1);
+                y = y1 + (rect.xMin - x1) * (y2 - y1) / (x2 - x1);
                 x = rect.xMin;
             }
 
@@ -139,24 +139,21 @@ bool ClipPoint_Circle(int x, int y, int cx, int cy, int r) {
 }
 
 // Clip line to circle by generating points inside circle
-bool ClipLine_Circle(int x1, int y1, int x2, int y2, int cx, int cy, int r, vector<Point>& clippedPoints) {
+vector<Point> ClipLine_Circle(int x1, int y1, int x2, int y2, int cx, int cy, int r) {
+    vector<Point> clippedPoints;
     int dx = x2 - x1;
     int dy = y2 - y1;
     int steps = max(abs(dx), abs(dy));
-    if (steps == 0) return false;
-
-    bool hasInside = false;
-    clippedPoints.clear();
+    if (steps == 0) return clippedPoints;
 
     for (int i = 0; i <= steps; i++) {
         int px = x1 + dx * i / steps;
         int py = y1 + dy * i / steps;
         if (ClipPoint_Circle(px, py, cx, cy, r)) {
             clippedPoints.push_back({px, py});
-            hasInside = true;
         }
     }
-    return hasInside;
+    return clippedPoints;
 }
 
 // Draw rectangle clipping window outline
